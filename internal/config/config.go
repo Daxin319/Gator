@@ -56,4 +56,5 @@ func (c Config) SetUser(name string) {
 	check(err)
 	//write the file
 	err = os.WriteFile(path, data, 0644)
+	check(err)
 }

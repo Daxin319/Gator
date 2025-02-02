@@ -1,16 +1,32 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	config "github.com/Daxin319/Gator/internal/config"
+	"github.com/Daxin319/Gator/internal/database"
+	"github.com/google/uuid"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
 	configFile := config.Read()
 
+	db, err := sql.Open("postgres", configFile.DbURL)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	dbQueries := database.New(db)
+
 	currentState := state{
+		dbQueries,
 		&configFile,
 	}
 
@@ -19,6 +35,9 @@ func main() {
 	}
 
 	commands.register("login", handlerLogins)
+	commands.register("register", handlerRegister)
+	commands.register("reset", handlerReset)
+	commands.register("users", handlerList)
 
 	args := os.Args
 
@@ -37,6 +56,7 @@ func main() {
 }
 
 type state struct {
+	db     *database.Queries
 	config *config.Config
 }
 
@@ -55,8 +75,65 @@ func handlerLogins(s *state, cmd command) error {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	if _, err := s.db.GetUser(context.Background(), cmd.arguments[0]); err != nil {
+		fmt.Println("user does not exist")
+		os.Exit(1)
+	}
 	s.config.SetUser(cmd.arguments[0])
 	fmt.Printf("Username set to %s\n", cmd.arguments[0])
+	return nil
+}
+
+func handlerRegister(s *state, cmd command) error {
+	if len(cmd.arguments) == 0 {
+		err := fmt.Errorf("expecting an argument")
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	args := database.CreateUserParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      cmd.arguments[0],
+	}
+
+	if _, err := s.db.GetUser(context.Background(), args.Name); err == nil {
+		fmt.Println("user already exists")
+		os.Exit(1)
+	}
+
+	s.db.CreateUser(context.Background(), args)
+	s.config.SetUser(cmd.arguments[0])
+	fmt.Printf("Username set to %s\n", cmd.arguments[0])
+	fmt.Printf("%s registered to database\n", cmd.arguments[0])
+	return nil
+}
+
+func handlerReset(s *state, cmd command) error {
+	err := s.db.ResetUsers(context.Background())
+	if err != nil {
+		fmt.Println("error resetting database")
+		os.Exit(1)
+	}
+	fmt.Println("database reset!")
+	return nil
+}
+
+func handlerList(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		fmt.Println("error getting users from database")
+		os.Exit(1)
+	}
+	for _, user := range users {
+		if user == s.config.CurrentUserName {
+			fmt.Printf("* %s (current)\n", user)
+		} else {
+			fmt.Printf("* %s\n", user)
+		}
+	}
 	return nil
 }
 

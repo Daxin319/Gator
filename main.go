@@ -3,7 +3,11 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/xml"
 	"fmt"
+	"html"
+	"io"
+	"net/http"
 	"os"
 	"time"
 
@@ -38,6 +42,7 @@ func main() {
 	commands.register("register", handlerRegister)
 	commands.register("reset", handlerReset)
 	commands.register("users", handlerList)
+	commands.register("agg", handlerAgg)
 
 	args := os.Args
 
@@ -67,6 +72,35 @@ type command struct {
 
 type commands struct {
 	validCommands map[string]func(*state, command) error
+}
+
+func (c *commands) register(name string, f func(*state, command) error) {
+	c.validCommands[name] = f
+}
+
+func (c *commands) run(s *state, cmd command) error {
+	err := c.validCommands[cmd.name](s, cmd)
+	if err != nil {
+		return fmt.Errorf("unknown command")
+	}
+
+	return nil
+}
+
+type RSSFeed struct {
+	Channel struct {
+		Title       string    `xml:"title"`
+		Link        string    `xml:"link"`
+		Description string    `xml:"description"`
+		Item        []RSSItem `xml:"item"`
+	} `xml:"channel"`
+}
+
+type RSSItem struct {
+	Title       string `xml:"title"`
+	Link        string `xml:"link"`
+	Description string `xml:"description"`
+	PubDate     string `xml:"pubDate"`
 }
 
 func handlerLogins(s *state, cmd command) error {
@@ -137,15 +171,53 @@ func handlerList(s *state, cmd command) error {
 	return nil
 }
 
-func (c *commands) register(name string, f func(*state, command) error) {
-	c.validCommands[name] = f
+func handlerAgg(s *state, cmd command) error {
+	fetched, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	if err != nil {
+		fmt.Println("error fetching RSS feed")
+		os.Exit(1)
+	}
+	fmt.Println(*fetched)
+	return nil
 }
 
-func (c *commands) run(s *state, cmd command) error {
-	err := c.validCommands[cmd.name](s, cmd)
+func fetchFeed(c context.Context, feedURL string) (*RSSFeed, error) {
+	client := http.Client{}
+
+	req, err := http.NewRequestWithContext(c, "GET", feedURL, nil)
 	if err != nil {
-		return fmt.Errorf("unknown command")
+		fmt.Println("error making request")
+		os.Exit(1)
 	}
 
-	return nil
+	req.Header.Set("User-Agent", "gator")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("error performing request")
+		os.Exit(1)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("error reading xml body")
+		os.Exit(1)
+	}
+
+	feedStruct := RSSFeed{}
+
+	err = xml.Unmarshal(body, &feedStruct)
+	if err != nil {
+		fmt.Println("error unmarshalling xml")
+	}
+
+	feedStruct.Channel.Title = html.UnescapeString(feedStruct.Channel.Title)
+	feedStruct.Channel.Description = html.UnescapeString(feedStruct.Channel.Description)
+
+	for _, item := range feedStruct.Channel.Item {
+		item.Title = html.UnescapeString(item.Title)
+		item.Description = html.UnescapeString(item.Description)
+	}
+
+	return &feedStruct, nil
 }

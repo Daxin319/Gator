@@ -3,7 +3,7 @@ package gator
 import (
 	"fmt"
 
-	config "github.com/Daxin319/internal/config"
+	config "github.com/Daxin319/Gator/internal/config"
 )
 
 func main() {

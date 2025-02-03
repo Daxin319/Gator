@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	config "github.com/Daxin319/Gator/internal/config"
@@ -48,6 +50,7 @@ func main() {
 	commands.register("follow", middlewareLoggedIn(handlerFollow))
 	commands.register("following", middlewareLoggedIn(handlerFollowing))
 	commands.register("unfollow", middlewareLoggedIn(handlerUnfollow))
+	commands.register("browse", middlewareLoggedIn(handlerBrowse))
 
 	args := os.Args
 
@@ -195,13 +198,24 @@ func handlerListFeeds(s *state, cmd command) error {
 }
 
 func handlerAgg(s *state, cmd command) error {
-	fetched, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
-	if err != nil {
-		fmt.Println("error fetching RSS feed")
+	if len(cmd.arguments) == 0 {
+		fmt.Println("expecting one argument (time between requests: '1m', '8h', '30s' etc.)")
 		os.Exit(1)
 	}
-	fmt.Println(*fetched)
-	return nil
+	timeBetweenRequests, err := time.ParseDuration(cmd.arguments[0])
+	if err != nil {
+		fmt.Println("invalid time format")
+		os.Exit(1)
+	}
+	if timeBetweenRequests < (time.Duration(30) * time.Second) {
+		fmt.Println("too short of a time period. Don't DOS people.")
+		os.Exit(1)
+	}
+
+	ticker := time.NewTicker(timeBetweenRequests)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
@@ -320,6 +334,30 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handlerBrowse(s *state, cmd command, user database.User) error {
+	limit := 2
+	if len(cmd.arguments) == 1 {
+		limit, _ = strconv.Atoi(cmd.arguments[0])
+	}
+
+	posts, err := s.db.GetPostsForUser(context.Background(), user.ID)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for i, post := range posts {
+		if i > limit {
+			break
+		}
+		fmt.Printf("- %s\n", post.Title)
+		fmt.Printf("   %s\n", post.Description)
+		fmt.Printf("   %s\n\n", post.Url)
+	}
+
+	return nil
+}
+
 func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
 	return func(s *state, cmd command) error {
 		user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
@@ -371,4 +409,54 @@ func fetchFeed(c context.Context, feedURL string) (*RSSFeed, error) {
 	}
 
 	return &feedStruct, nil
+}
+
+func scrapeFeeds(s *state) {
+	nextFeed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		fmt.Println("error getting next feed to fetch")
+		os.Exit(1)
+	}
+
+	nullTime := sql.NullTime{
+		Time:  time.Now(),
+		Valid: true,
+	}
+
+	arg := database.MarkFeedFetchedParams{
+		LastFetchedAt: nullTime,
+		ID:            nextFeed.ID,
+	}
+
+	err = s.db.MarkFeedFetched(context.Background(), arg)
+	if err != nil {
+		fmt.Println("error marking feed fetched")
+		os.Exit(1)
+	}
+
+	feed, err := fetchFeed(context.Background(), nextFeed.Url)
+	if err != nil {
+		fmt.Println("error fetching feed")
+	}
+
+	for _, item := range feed.Channel.Item {
+		args := database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: item.Description,
+			PublishedAt: item.PubDate,
+			FeedID:      nextFeed.ID,
+		}
+
+		_, err = s.db.CreatePost(context.Background(), args)
+		if err != nil {
+			if dup := strings.Contains(err.Error(), "UNIQUE constraint failed"); dup {
+				continue
+			}
+			fmt.Println(err)
+		}
+	}
 }

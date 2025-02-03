@@ -43,6 +43,11 @@ func main() {
 	commands.register("reset", handlerReset)
 	commands.register("users", handlerList)
 	commands.register("agg", handlerAgg)
+	commands.register("addfeed", middlewareLoggedIn(handlerAddFeed))
+	commands.register("feeds", handlerListFeeds)
+	commands.register("follow", middlewareLoggedIn(handlerFollow))
+	commands.register("following", middlewareLoggedIn(handlerFollowing))
+	commands.register("unfollow", middlewareLoggedIn(handlerUnfollow))
 
 	args := os.Args
 
@@ -171,6 +176,24 @@ func handlerList(s *state, cmd command) error {
 	return nil
 }
 
+func handlerListFeeds(s *state, cmd command) error {
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		fmt.Println("error getting feeds from database")
+		os.Exit(1)
+	}
+
+	for _, feed := range feeds {
+		creator, err := s.db.GetCreator(context.Background(), feed.UserID)
+		if err != nil {
+			fmt.Println("error retreiving creator data")
+		}
+		fmt.Printf("- Feed: %s\n  URL: %s\n  Created by: %s\n\n", feed.Name, feed.Url, creator)
+	}
+
+	return nil
+}
+
 func handlerAgg(s *state, cmd command) error {
 	fetched, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
 	if err != nil {
@@ -179,6 +202,134 @@ func handlerAgg(s *state, cmd command) error {
 	}
 	fmt.Println(*fetched)
 	return nil
+}
+
+func handlerAddFeed(s *state, cmd command, user database.User) error {
+	if len(cmd.arguments) < 2 {
+		fmt.Println("not enough arguments provided, please provide a name and url")
+		os.Exit(1)
+	}
+
+	user_id := user.ID
+
+	args := database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      cmd.arguments[0],
+		Url:       cmd.arguments[1],
+		UserID:    user_id,
+	}
+
+	feed, err := s.db.CreateFeed(context.Background(), args)
+	if err != nil {
+		fmt.Printf("error creating feed")
+		os.Exit(1)
+	}
+
+	feed_id := feed.ID
+	feed_name := feed.Name
+
+	follow_args := database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user_id,
+		FeedID:    feed_id,
+	}
+
+	_, err = s.db.CreateFeedFollow(context.Background(), follow_args)
+	if err != nil {
+		fmt.Println("error creating feed_follow record")
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s has followed %s\n", user.Name, feed_name)
+
+	fmt.Println(feed)
+	return nil
+}
+
+func handlerFollow(s *state, cmd command, user database.User) error {
+	if len(cmd.arguments) == 0 {
+		fmt.Printf("expecting 1 argument (url)")
+		os.Exit(1)
+	}
+
+	user_id := user.ID
+
+	feed, err := s.db.URLLookup(context.Background(), cmd.arguments[0])
+	if err != nil {
+		fmt.Println("error getting feed id")
+		os.Exit(1)
+	}
+
+	feed_id := feed.ID
+	feed_name := feed.Name
+
+	args := database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user_id,
+		FeedID:    feed_id,
+	}
+
+	_, err = s.db.CreateFeedFollow(context.Background(), args)
+	if err != nil {
+		fmt.Println("error creating feed_follow record")
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s has followed %s\n", user.Name, feed_name)
+
+	return nil
+}
+
+func handlerFollowing(s *state, cmd command, user database.User) error {
+	following, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
+	if err != nil {
+		fmt.Println("error getting followed feeds")
+	}
+
+	fmt.Printf("%s is following:\n\n", user.Name)
+
+	for _, feed := range following {
+		fmt.Printf("  -%s\n", feed.FeedName)
+	}
+
+	return nil
+}
+
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.arguments) == 0 {
+		fmt.Println("expecting 1 argument (url)")
+		os.Exit(1)
+	}
+
+	feed, _ := s.db.URLLookup(context.Background(), cmd.arguments[0])
+
+	arg := database.DeleteFollowParams{
+		Name: user.Name,
+		Url:  cmd.arguments[0],
+	}
+
+	s.db.DeleteFollow(context.Background(), arg)
+	fmt.Printf("You have unfollowed %s\n", feed.Name)
+
+	return nil
+}
+
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return func(s *state, cmd command) error {
+		user, err := s.db.GetUser(context.Background(), s.config.CurrentUserName)
+		if err != nil {
+			fmt.Println("error getting user id")
+			os.Exit(1)
+		}
+		handler(s, cmd, user)
+		return nil
+	}
 }
 
 func fetchFeed(c context.Context, feedURL string) (*RSSFeed, error) {

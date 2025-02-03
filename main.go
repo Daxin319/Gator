@@ -337,7 +337,8 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 func handlerBrowse(s *state, cmd command, user database.User) error {
 	limit := 2
 	if len(cmd.arguments) == 1 {
-		limit, _ = strconv.Atoi(cmd.arguments[0])
+		userLimit, _ := strconv.Atoi(cmd.arguments[0])
+		limit = userLimit - 1
 	}
 
 	posts, err := s.db.GetPostsForUser(context.Background(), user.ID)

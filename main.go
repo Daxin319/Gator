@@ -454,7 +454,7 @@ func scrapeFeeds(s *state) {
 
 		_, err = s.db.CreatePost(context.Background(), args)
 		if err != nil {
-			if dup := strings.Contains(err.Error(), "UNIQUE constraint failed"); dup {
+			if dup := strings.Contains(err.Error(), "violates unique constraint"); dup {
 				continue
 			}
 			fmt.Println(err)

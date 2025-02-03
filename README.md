@@ -7,7 +7,7 @@ To install the latest version of the Go toolchain, visit https://go.dev/doc/inst
 
 To install Postgres, visit https://www.postgresql.org/download/ and select the version appropriate for your OS.
 
-After you have installed Go and Postgres, open your terminal/shell and run `go install github.com/Daxin319/Gator`. Once the program has installed, run it with `gator`
+After you have installed Go and Postgres, open your terminal/shell and run `go install github.com/Daxin319/Gator@latest`. Once the program has installed, run it with `gator`
 
 If this is the first time you're launching gator, you'll need to register a user. Run `gator register <username>` to register a new user. If you have more than 1 user, you can use `gator login <username>` to change users.
 

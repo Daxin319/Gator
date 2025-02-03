@@ -2,6 +2,8 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 )
 
@@ -31,6 +33,13 @@ func Read() Config {
 	//get file path
 	path, err := getFilePath()
 	check(err)
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		err = os.WriteFile(path, []byte("{\"db_url\":\"postgres://postgres:postgres@localhost:5432/gator?sslmode=disable\",\"current_user_name\":\"\"}"), 0755)
+		if err != nil {
+			fmt.Println("unable to write file")
+		}
+	}
+
 	//initialize Config struct
 	config := Config{}
 

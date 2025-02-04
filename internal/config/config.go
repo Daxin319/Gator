@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type Config struct {
@@ -14,40 +15,65 @@ type Config struct {
 
 func check(e error) {
 	if e != nil {
-		panic(e)
+		fmt.Println("Error:", e)
+		os.Exit(1)
 	}
 }
 
 func getFilePath() (string, error) {
-	//find home dir
 	homeDir, err := os.UserHomeDir()
-	check(err)
-	//set path to config json
-	path := homeDir + "/.gatorconfig.json"
-
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(homeDir, ".gatorconfig.json")
 	return path, nil
 }
 
-// reads file at userHomeDir/.gatorconfig.json and outputs Config struct
+// Reads file at userHomeDir/.gatorconfig.json and outputs Config struct
 func Read() Config {
-	//get file path
-	path, err := getFilePath()
-	check(err)
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		err = os.WriteFile(path, []byte("{\"db_url\":\"postgres://postgres:postgres@localhost:5432/gator?sslmode=disable\",\"current_user_name\":\"\"}"), 0755)
-		if err != nil {
-			fmt.Println("unable to write file")
+	//path, err := getFilePath()
+	//check(err)
+
+	path := "/home/lyle/.gatorconfig.json"
+	dirPath := "/home/lyle/"
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(dirPath)
+	if _, err := os.Stat(dir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			err = os.MkdirAll(dir, 0755) // Create directory if missing
+			check(err)
+		} else {
+			check(err)
 		}
 	}
 
-	//initialize Config struct
-	config := Config{}
+	// Ensure the file exists, create it if missing
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			defaultConfig := `{"db_url":"postgres://postgres:postgres@localhost:5432/gator?sslmode=disable","current_user_name":""}`
+			err = os.WriteFile(path, []byte(defaultConfig), 0644)
+			check(err)
+			fmt.Println("Config file created:", path)
+		} else {
+			check(err)
+		}
+	}
 
-	//read the config file into []bytes
+	// Double-check if the file now exists
+	if _, err := os.Stat(path); err != nil {
+		fmt.Println("Critical: Config file still does not exist after creation attempt!")
+		check(err)
+	}
+
+	// Read the config file
 	data, err := os.ReadFile(path)
 	check(err)
 
-	//unmarshal the json into the config struct
+	// Initialize Config struct
+	var config Config
+
+	// Unmarshal the JSON into the config struct
 	err = json.Unmarshal(data, &config)
 	check(err)
 

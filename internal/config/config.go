@@ -26,15 +26,14 @@ func getFilePath() (string, error) {
 		return "", err
 	}
 	path := filepath.Join(homeDir, ".gatorconfig.json")
-	return path, nil
+	clean := filepath.Clean(path)
+	return filepath.FromSlash(clean), nil
 }
 
-// Reads file at userHomeDir/.gatorconfig.json and outputs Config struct
+// Reads .gatorconfig.json and outputs Config struct
 func Read() Config {
 	path, err := getFilePath()
 	check(err)
-
-	configPath := path + "/.gatorconfig.json"
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
@@ -48,7 +47,7 @@ func Read() Config {
 	}
 
 	// Ensure the file exists, create it if missing
-	if _, err := os.Stat(configPath); err != nil {
+	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			defaultConfig := `{"db_url":"postgres://postgres:postgres@localhost:5432/gator?sslmode=disable","current_user_name":""}`
 			err = os.WriteFile(path, []byte(defaultConfig), 0644)
@@ -60,7 +59,7 @@ func Read() Config {
 	}
 
 	// Double-check if the file now exists
-	if _, err := os.Stat(configPath); err != nil {
+	if _, err := os.Stat(path); err != nil {
 		fmt.Println("Critical: Config file still does not exist after creation attempt!")
 		check(err)
 	}

@@ -64,10 +64,12 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 }
 
 const getPostsForUser = `-- name: GetPostsForUser :many
-SELECT posts.title, posts.description, posts.url
+SELECT posts.title, posts.description, posts.url, feeds.title
 FROM posts
 INNER JOIN feed_follows
 ON posts.feed_id = feed_follows.feed_id
+INNER JOIN feeds
+ON feed_follows.feed_id = feeds.id
 WHERE feed_follows.user_id = $1
 ORDER BY published_at DESC
 `
@@ -76,6 +78,7 @@ type GetPostsForUserRow struct {
 	Title       string
 	Description string
 	Url         string
+	Source 		string
 }
 
 func (q *Queries) GetPostsForUser(ctx context.Context, userID uuid.UUID) ([]GetPostsForUserRow, error) {

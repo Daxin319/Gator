@@ -7,6 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
+	"syscall"
+	"unsafe"
 
 	_ "github.com/lib/pq"
 )
@@ -58,16 +61,81 @@ func isPostgresRunning() bool {
 	return err == nil
 }
 
+// isAdmin checks if the program is running as administrator
+func isAdmin() bool {
+	var token syscall.Token
+	currentProcess, err := syscall.GetCurrentProcess()
+	if err != nil {
+		fmt.Println("ERROR: ", err)
+		os.Exit(1)
+	}
+	err = syscall.OpenProcessToken(currentProcess, syscall.TOKEN_QUERY, &token)
+	if err != nil {
+		return false
+	}
+	defer token.Close()
+
+	var elevation uint32
+	var size uint32
+	err = syscall.GetTokenInformation(token, syscall.TokenElevation, (*byte)(unsafe.Pointer(&elevation)), uint32(unsafe.Sizeof(elevation)), &size)
+	if err != nil {
+		return false
+	}
+	return elevation != 0
+}
+
+// relaunchAsAdmin restarts the program with elevated privileges
+func RelaunchAsAdmin() {
+	if runtime.GOOS != "windows" || isAdmin() {
+		return // Already running as admin or not on Windows
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		fmt.Println("Failed to get executable path:", err)
+		os.Exit(1)
+	}
+
+	// Relaunch the process as Administrator
+	cmd := exec.Command("powershell", "-Command",
+		"Start-Process", exe, "-ArgumentList", fmt.Sprintf(`"%s"`, strings.Join(os.Args[1:], " ")), "-Verb", "runAs")
+
+	err = cmd.Start()
+	if err != nil {
+		fmt.Println("Failed to restart as administrator:", err)
+		os.Exit(1)
+	}
+
+	os.Exit(0) // Exit the non-admin instance
+}
+
+// runAsAdmin ensures commands are executed with admin privileges
+func runAsAdmin(cmd *exec.Cmd) error {
+	if runtime.GOOS == "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error: %v\noutput: %s", err, string(output))
+	}
+
+	fmt.Println(string(output))
+	return nil
+}
+
 // Try to start PostgreSQL
 func startPostgres() error {
 	var cmd *exec.Cmd
+
 	switch runtime.GOOS {
 	case "linux":
 		cmd = exec.Command("sudo", "systemctl", "start", "postgresql")
 	case "darwin":
 		cmd = exec.Command("brew", "services", "start", "postgresql")
 	case "windows":
-		cmd = exec.Command("net", "start", "postgresql-x64-16")
+		cmd = exec.Command("net", "start", "postgresql")
+		return runAsAdmin(cmd)
 	default:
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
@@ -77,6 +145,7 @@ func startPostgres() error {
 		return fmt.Errorf("failed to start PostgreSQL: %s - %s", err, string(output))
 	}
 
+	fmt.Println(string(output))
 	return nil
 }
 
@@ -113,11 +182,54 @@ func EnsurePostgresRunning() {
 
 // Initialize postgres server if needed
 func initializePostgres() error {
-	cmd := exec.Command("sudo", "-u", "postgres", "initdb", "-D", "/var/lib/postgresql/data")
+	var cmd *exec.Cmd
+	var dataDir string
+
+	switch runtime.GOOS {
+	case "linux":
+		dataDir = "/var/lib/postgresql/data"
+		cmd = exec.Command("sudo", "-u", "postgres", "initdb", "-D", dataDir)
+
+	case "darwin":
+		dataDir = "/usr/local/var/postgres"
+		cmd = exec.Command("initdb", "-D", dataDir)
+
+	case "windows":
+		// Use a user-writable directory instead of "C:\Program Files\PostgreSQL\data"
+		dataDir = "C:\\Users\\lyleh\\postgres_data"
+
+		// Ensure the directory exists
+		if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+			fmt.Println("Creating PostgreSQL data directory:", dataDir)
+			if err := os.Mkdir(dataDir, 0700); err != nil {
+				return fmt.Errorf("failed to create data directory: %s", err)
+			}
+		}
+
+		// Run initdb
+		cmd = exec.Command("pg_ctl", "initdb", "-D", dataDir)
+	default:
+		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+	}
+
+	cmd.Env = os.Environ() // Preserve environment variables
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to initialize PostgreSQL: %s - %s", err, string(output))
 	}
+
+	fmt.Println("PostgreSQL initialized successfully.")
+
+	// Start PostgreSQL after initialization (for Windows)
+	if runtime.GOOS == "windows" {
+		startCmd := exec.Command("pg_ctl", "start", "-D", dataDir, "-l", "postgres.log")
+		startOutput, startErr := startCmd.CombinedOutput()
+		if startErr != nil {
+			return fmt.Errorf("failed to start PostgreSQL: %s - %s", startErr, string(startOutput))
+		}
+		fmt.Println("PostgreSQL started successfully.")
+	}
+
 	return nil
 }
 
@@ -125,7 +237,7 @@ func initializePostgres() error {
 func EnsureDatabaseExists() error {
 
 	// Connect to the default "postgres" database to check for 'gator'
-	dsn := "host=localhost port=5432 user=postgres password=postgres dbname=postgres sslmode=disable"
+	dsn := "host=localhost port=5432 user=postgres password=postgres dbname=gator sslmode=disable"
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return fmt.Errorf("ERROR: Cannot connect to PostgreSQL: %w", err)

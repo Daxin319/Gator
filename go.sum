@@ -1,5 +1,3 @@
-github.com/Daxin319/Gator/internal/config v0.0.0-20250202050340-423a3480635e h1:y5Ido1pPCN/MOucLl5Fy0Phr0r127Voa7B2o8wX2yE8=
-github.com/Daxin319/Gator/internal/config v0.0.0-20250202050340-423a3480635e/go.mod h1:aOty2wZ+n8FJWCtHhZIMw+GogHv1nApNfiy1nycXqtg=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=

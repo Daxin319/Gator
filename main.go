@@ -22,6 +22,9 @@ import (
 )
 
 func main() {
+	// Verify windows in Admin mode
+	database.RelaunchAsAdmin()
+
 	// Read config file
 	configFile := config.Read()
 
@@ -83,6 +86,10 @@ func main() {
 	}
 
 	commands.run(&currentState, command)
+
+	// Keep console open
+	fmt.Println("Press Enter to exit...")
+	fmt.Scanln()
 }
 
 type state struct {

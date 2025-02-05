@@ -25,19 +25,15 @@ func getFilePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(homeDir)
-	path := filepath.Join(homeDir, "DEBUG.gatorconfig.json")
+	path := filepath.Join(homeDir, ".gatorconfig.json")
 	clean := filepath.Clean(path)
 	return filepath.FromSlash(clean), nil
 }
 
 // Reads .gatorconfig.json and outputs Config struct
 func Read() Config {
-	syntax error you fuckers
 	path, err := getFilePath()
 	check(err)
-
-	fmt.Println(path)
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)

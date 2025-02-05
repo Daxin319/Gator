@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 type Config struct {
@@ -34,7 +35,17 @@ func Read() Config {
 	path, err := getFilePath()
 	check(err)
 
-	configPath := path + "/.gatorconfig.json"
+	var osPath string
+	switch runtime.GOOS {
+	case "linux", "darwin":
+		osPath = "/"
+	case "windows":
+		osPath = "\\"
+	default:
+		fmt.Printf("unsupported OS: %s\n", runtime.GOOS)
+	}
+
+	configPath := osPath + ".gatorconfig.json"
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)

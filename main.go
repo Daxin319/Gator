@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,13 +22,29 @@ import (
 )
 
 func main() {
+	// Read config file
 	configFile := config.Read()
 
-	db, err := sql.Open("postgres", configFile.DbURL)
+	// Ensure postgres is running
+	database.EnsurePostgresRunning()
+
+	// Check for db and create if none
+	database.EnsureDatabaseExists()
+
+	dsn := "host=localhost port=5432 user=postgres password=postgres dbname=gator sslmode=disable"
+	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		fmt.Println("ERROR: Cannot connect to PostgreSQL:", err)
 	}
+	defer db.Close()
+
+	var connectedDB string
+	err = db.QueryRow("SELECT current_database();").Scan(&connectedDB)
+	if err != nil {
+		log.Fatal("ERROR: Could not fetch connected database:", err)
+	}
+
+	fmt.Println("GatorDB is ready!")
 
 	dbQueries := database.New(db)
 
@@ -131,9 +148,10 @@ func handlerRegister(s *state, cmd command) error {
 	if len(cmd.arguments) == 0 {
 		err := fmt.Errorf("expecting an argument")
 		fmt.Println(err)
-		os.Exit(1)
+		return err
 	}
 
+	// Prepare the user creation parameters
 	args := database.CreateUserParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
@@ -141,15 +159,17 @@ func handlerRegister(s *state, cmd command) error {
 		Name:      cmd.arguments[0],
 	}
 
-	if _, err := s.db.GetUser(context.Background(), args.Name); err == nil {
-		fmt.Println("user already exists")
-		os.Exit(1)
+	// Insert user into the database
+	_, err := s.db.CreateUser(context.Background(), args)
+	if err != nil {
+		fmt.Println("ERROR: Failed to insert user into database:", err)
+		return err
 	}
 
-	s.db.CreateUser(context.Background(), args)
+	// Set the username in the config
 	s.config.SetUser(cmd.arguments[0])
+
 	fmt.Printf("Username set to %s\n", cmd.arguments[0])
-	fmt.Printf("%s registered to database\n", cmd.arguments[0])
 	return nil
 }
 
@@ -166,7 +186,7 @@ func handlerReset(s *state, cmd command) error {
 func handlerList(s *state, cmd command) error {
 	users, err := s.db.GetUsers(context.Background())
 	if err != nil {
-		fmt.Println("error getting users from database")
+		fmt.Println("error getting users from database", err)
 		os.Exit(1)
 	}
 	for _, user := range users {

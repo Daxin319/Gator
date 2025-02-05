@@ -227,7 +227,7 @@ func handlerAgg(s *state, cmd command) error {
 		fmt.Println("invalid time format")
 		os.Exit(1)
 	}
-	if timeBetweenRequests < (time.Duration(30) * time.Second) {
+	if timeBetweenRequests < (time.Duration(5) * time.Second) {
 		fmt.Println("too short of a time period. Don't DOS people.")
 		os.Exit(1)
 	}
@@ -356,8 +356,10 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 
 func handlerBrowse(s *state, cmd command, user database.User) error {
 	limit := 2
+	var userLimit int
+
 	if len(cmd.arguments) == 1 {
-		userLimit, _ := strconv.Atoi(cmd.arguments[0])
+		userLimit, _ = strconv.Atoi(cmd.arguments[0])
 		limit = userLimit - 1
 	}
 
@@ -365,6 +367,10 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
+	}
+
+	if userLimit > len(posts) {
+		limit = len(posts)
 	}
 
 	for i, post := range posts {

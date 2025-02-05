@@ -1,11 +1,22 @@
 # Gator
 RSS Blog Aggregator CLI tool written in Go
 
+
+
 To run this program you will need the latest version of the Go toolchain and Postgres installed on your machine to install the binary.
 
 To install the latest version of the Go toolchain, visit https://go.dev/doc/install and select the version appropriate for your OS.
 
-To install Postgres, visit https://www.postgresql.org/download/ and select the version appropriate for your OS.
+
+
+To install PostgreSQL, visit https://www.postgresql.org/download/ and select the version appropriate for your OS.
+Gator requires at least version 16.6 of PostgreSQL to run.
+
+On Windows, you may need to add the binary folder to your path, open a powershell as administrator and run the following command to add it to your path:
+
+`[System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\PostgreSQL\17\bin\", [System.EnvironmentVariableTarget]::Machine)` Version 17 is the current release at time of writing, if you have a newer version of postgres, change the 17 to your version number.
+
+
 
 After you have installed Go and Postgres, open your terminal/shell and run `go install github.com/Daxin319/Gator@latest`. Once the program has installed, run it with `Gator`
 

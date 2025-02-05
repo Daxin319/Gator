@@ -40,7 +40,7 @@ func Read() Config {
 	case "linux", "darwin":
 		osPath = "/"
 	case "windows":
-		osPath = "\\"
+		osPath = path[:len(path)-1] + "\\"
 	default:
 		fmt.Printf("unsupported OS: %s\n", runtime.GOOS)
 	}

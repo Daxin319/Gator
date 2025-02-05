@@ -4,8 +4,18 @@ RSS Blog Aggregator CLI tool written in Go
 
 
 To run this program you will need the latest version of the Go toolchain and Postgres installed on your machine to install the binary.
+Most users will find it easiest to use curl to install it.
+For linux, the snap version of curl is worthless, you need to get the apt version with 
+```
+sudo apt update
+sudo apt install curl
+```
+then run
+```
+curl -sS https://webi.sh/golang | sh
+```
 
-To install the latest version of the Go toolchain, visit https://go.dev/doc/install and select the version appropriate for your OS.
+To install the latest version of the Go toolchain, or visit https://go.dev/doc/install and select the version appropriate for your OS.
 
 
 

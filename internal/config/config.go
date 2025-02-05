@@ -26,13 +26,14 @@ func getFilePath() (string, error) {
 		return "", err
 	}
 	fmt.Println(homeDir)
-	path := filepath.Join(homeDir, ".gatorconfig.json")
+	path := filepath.Join(homeDir, "DEBUG.gatorconfig.json")
 	clean := filepath.Clean(path)
 	return filepath.FromSlash(clean), nil
 }
 
-// Reads file at userHomeDir/.gatorconfig.json and outputs Config struct
+// Reads .gatorconfig.json and outputs Config struct
 func Read() Config {
+	syntax error you fuckers
 	path, err := getFilePath()
 	check(err)
 

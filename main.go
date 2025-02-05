@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	config "github.com/Daxin319/Gator/internal/config"
+	"github.com/Daxin319/Gator/internal/config"
 	"github.com/Daxin319/Gator/internal/database"
 	"github.com/google/uuid"
 

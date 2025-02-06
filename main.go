@@ -44,7 +44,8 @@ func main() {
 		log.Fatal("ERROR: Could not fetch connected database:", err)
 	}
 
-	fmt.Println("GatorDB is ready!")
+	fmt.Printf("GatorDB is ready!\n\n")
+	fmt.Printf("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\n\n")
 
 	dbQueries := database.New(db)
 
@@ -376,11 +377,11 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 		if i > limit {
 			break
 		}
-		fmt.Printf("- %s\n", post.Title)
-		fmt.Printf(" - %s\n", post.FeedTitle)
-		fmt.Printf("    %s\n", post.PublishedAt)
+		fmt.Printf("\n- %s\n", post.Title)
+		fmt.Printf(" - %s          %s\n\n", post.FeedTitle, post.PublishedAt)
 		fmt.Printf(" %s\n", post.Description)
-		fmt.Printf(" <Ctrl + LMB> to visit full article in browser -> %s\n\n", post.Url)
+		fmt.Printf(" <Ctrl + LMB> to visit full article in browser -> %s\n\n\n", post.Url)
+		fmt.Printf("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\n")
 	}
 
 	return nil

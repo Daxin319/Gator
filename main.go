@@ -380,7 +380,7 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 		fmt.Printf(" - %s\n", post.FeedTitle)
 		fmt.Printf("    %s\n", post.PublishedAt)
 		fmt.Printf(" %s\n", post.Description)
-		fmt.Printf(" <Ctrl + LMB> to visit full article in browser asdkfjlasdjfk-> %s\n\n", post.Url)
+		fmt.Printf(" <Ctrl + LMB> to visit full article in browser -> %s\n\n", post.Url)
 	}
 
 	return nil

@@ -27,7 +27,8 @@ func getFilePath() (string, error) {
 	}
 	fmt.Println(homeDir)
 	path := filepath.Join(homeDir, ".gatorconfig.json")
-	return filepath.Clean(path), nil
+	clean := filepath.Clean(path)
+	return filepath.FromSlash(clean), nil
 }
 
 // Reads file at userHomeDir/.gatorconfig.json and outputs Config struct

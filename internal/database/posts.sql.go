@@ -64,10 +64,12 @@ func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (Post, e
 }
 
 const getPostsForUser = `-- name: GetPostsForUser :many
-SELECT posts.title, posts.description, posts.url
+SELECT posts.title, posts.description, posts.url, posts.published_at, feeds.name AS feed_title
 FROM posts
 INNER JOIN feed_follows
 ON posts.feed_id = feed_follows.feed_id
+INNER JOIN feeds
+ON feed_follows.feed_id = feeds.id
 WHERE feed_follows.user_id = $1
 ORDER BY published_at DESC
 `
@@ -76,6 +78,8 @@ type GetPostsForUserRow struct {
 	Title       string
 	Description string
 	Url         string
+	PublishedAt string
+	FeedTitle   string
 }
 
 func (q *Queries) GetPostsForUser(ctx context.Context, userID uuid.UUID) ([]GetPostsForUserRow, error) {
@@ -84,19 +88,21 @@ func (q *Queries) GetPostsForUser(ctx context.Context, userID uuid.UUID) ([]GetP
 		return nil, err
 	}
 	defer rows.Close()
+
 	var items []GetPostsForUserRow
 	for rows.Next() {
 		var i GetPostsForUserRow
-		if err := rows.Scan(&i.Title, &i.Description, &i.Url); err != nil {
+
+		if err := rows.Scan(&i.Title, &i.Description, &i.Url, &i.PublishedAt, &i.FeedTitle); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return items, nil
 }
+

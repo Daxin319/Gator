@@ -7,7 +7,7 @@ package database
 
 import (
 	"context"
-	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -38,7 +38,7 @@ WHERE feeds.id = $2
 `
 
 type MarkFeedFetchedParams struct {
-	LastFetchedAt sql.NullTime
+	LastFetchedAt time.Time
 	ID            uuid.UUID
 }
 

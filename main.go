@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	config "github.com/Daxin319/Gator/internal/config"
+	"github.com/Daxin319/Gator/internal/config"
 	"github.com/Daxin319/Gator/internal/database"
 	"github.com/google/uuid"
 
@@ -227,7 +227,7 @@ func handlerAgg(s *state, cmd command) error {
 		fmt.Println("invalid time format")
 		os.Exit(1)
 	}
-	if timeBetweenRequests < (time.Duration(30) * time.Second) {
+	if timeBetweenRequests < (time.Duration(5) * time.Second) {
 		fmt.Println("too short of a time period. Don't DOS people.")
 		os.Exit(1)
 	}
@@ -247,12 +247,13 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 	user_id := user.ID
 
 	args := database.CreateFeedParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Name:      cmd.arguments[0],
-		Url:       cmd.arguments[1],
-		UserID:    user_id,
+		ID:            uuid.New(),
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+		Name:          cmd.arguments[0],
+		Url:           cmd.arguments[1],
+		UserID:        user_id,
+		LastFetchedAt: time.Now(),
 	}
 
 	feed, err := s.db.CreateFeed(context.Background(), args)
@@ -367,13 +368,19 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 		os.Exit(1)
 	}
 
+	if limit > len(posts) {
+		limit = len(posts)
+	}
+
 	for i, post := range posts {
 		if i > limit {
 			break
 		}
 		fmt.Printf("- %s\n", post.Title)
-		fmt.Printf("   %s\n", post.Description)
-		fmt.Printf("   %s\n\n", post.Url)
+		fmt.Printf(" - %s\n", post.FeedTitle)
+		fmt.Printf("    %s\n", post.PublishedAt)
+		fmt.Printf(" %s\n", post.Description)
+		fmt.Printf(" <Ctrl + LMB> to visit full article in browser asdkfjlasdjfk-> %s\n\n", post.Url)
 	}
 
 	return nil
@@ -439,13 +446,8 @@ func scrapeFeeds(s *state) {
 		os.Exit(1)
 	}
 
-	nullTime := sql.NullTime{
-		Time:  time.Now(),
-		Valid: true,
-	}
-
 	arg := database.MarkFeedFetchedParams{
-		LastFetchedAt: nullTime,
+		LastFetchedAt: time.Now(),
 		ID:            nextFeed.ID,
 	}
 
@@ -461,6 +463,12 @@ func scrapeFeeds(s *state) {
 	}
 
 	for _, item := range feed.Channel.Item {
+		formattedDate, err := parseTimeToRFC3339(item.PubDate)
+		if err != nil {
+			fmt.Println("ERROR unable to format date: ", err)
+			os.Exit(1)
+		}
+
 		args := database.CreatePostParams{
 			ID:          uuid.New(),
 			CreatedAt:   time.Now(),
@@ -468,7 +476,7 @@ func scrapeFeeds(s *state) {
 			Title:       item.Title,
 			Url:         item.Link,
 			Description: item.Description,
-			PublishedAt: item.PubDate,
+			PublishedAt: formattedDate,
 			FeedID:      nextFeed.ID,
 		}
 
@@ -482,4 +490,32 @@ func scrapeFeeds(s *state) {
 
 		}
 	}
+}
+
+func parseTimeToRFC3339(input string) (string, error) {
+	// List of possible date formats
+	formats := []string{
+		time.RFC3339,                    // 2006-01-02T15:04:05Z07:00
+		time.RFC1123,                    // Mon, 02 Jan 2006 15:04:05 MST
+		time.RFC1123Z,                   // Mon, 02 Jan 2006 15:04:05 -0700
+		"Mon, 02 Jan 2006 15:04:05 GMT", // Explicit RFC1123 with GMT
+		"2006-01-02 15:04:05",           // MySQL DATETIME
+		"2006-01-02",                    // YYYY-MM-DD
+		"02 Jan 2006 15:04:05 MST",      // 02 Jan 2006 15:04:05 UTC
+		"02 Jan 2006",                   // 02 Jan 2006
+	}
+
+	var parsedTime time.Time
+	var err error
+	for _, format := range formats {
+		parsedTime, err = time.Parse(format, input)
+		if err == nil {
+			// Successfully parsed, return in RFC 3339 format
+			return parsedTime.Format(time.RFC3339), nil
+		}
+	}
+
+	// Debug output
+	fmt.Printf("Failed to parse: %s\n", input)
+	return "", fmt.Errorf("unable to parse time: %s", input)
 }

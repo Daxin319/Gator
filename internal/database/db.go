@@ -160,7 +160,7 @@ func EnsureDatabaseExists() error {
 
 // executes the schema creation SQL in order
 func applyMigrations(db *sql.DB) error {
-	fmt.Println("Verifying files...")
+	fmt.Println("Verifying database integrity...")
 
 	migrations := []string{
 		`CREATE TABLE IF NOT EXISTS users (
@@ -214,6 +214,6 @@ func applyMigrations(db *sql.DB) error {
 		}
 	}
 
-	fmt.Println("All files verified!")
+	fmt.Println("Database integrity verified!")
 	return nil
 }

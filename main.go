@@ -494,11 +494,6 @@ func scrapeFeeds(s *state) {
 }
 
 func parseTimeToRFC3339(input string) (string, error) {
-
-	if input == "" {
-		return "", nil // Handle empty input gracefully
-	}
-
 	// List of possible date formats
 	formats := []string{
 		time.RFC3339,                    // 2006-01-02T15:04:05Z07:00

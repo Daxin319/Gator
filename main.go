@@ -16,6 +16,7 @@ import (
 
 	"github.com/Daxin319/Gator/internal/config"
 	"github.com/Daxin319/Gator/internal/database"
+	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/google/uuid"
 
 	_ "github.com/lib/pq"
@@ -470,13 +471,25 @@ func scrapeFeeds(s *state) {
 			os.Exit(1)
 		}
 
+		//debug
+		fmt.Println(item.Description)
+
+		markdown, err := htmltomarkdown.ConvertString(item.Description)
+		if err != nil {
+			fmt.Println("error converting description from html to markdown")
+			os.Exit(1)
+		}
+
+		//debug
+		fmt.Println(markdown)
+
 		args := database.CreatePostParams{
 			ID:          uuid.New(),
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 			Title:       item.Title,
 			Url:         item.Link,
-			Description: item.Description,
+			Description: markdown,
 			PublishedAt: formattedDate,
 			FeedID:      nextFeed.ID,
 		}
@@ -494,6 +507,9 @@ func scrapeFeeds(s *state) {
 }
 
 func parseTimeToRFC3339(input string) (string, error) {
+	if len(input) == 0 {
+		return "", nil
+	}
 	// List of possible date formats
 	formats := []string{
 		time.RFC3339,                    // 2006-01-02T15:04:05Z07:00

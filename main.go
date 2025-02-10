@@ -211,7 +211,7 @@ func handlerListFeeds(s *state, cmd command) error {
 	for _, feed := range feeds {
 		creator, err := s.db.GetCreator(context.Background(), feed.UserID)
 		if err != nil {
-			fmt.Println("error retreiving creator data")
+			fmt.Println("error retrieving creator data")
 		}
 		fmt.Printf("- Feed: %s\n  URL: %s\n  Created by: %s\n\n", feed.Name, feed.Url, creator)
 	}

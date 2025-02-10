@@ -36,13 +36,31 @@ Finally you'll need to enter a password, run the following command. The default 
 ```
 sudo passwd postgres
 ```
-Enter your password and modify your config file if necessary and you're ready to use Gator!
+
+After setting the password, start the postgres server in the background using 
+```
+sudo service postgresql start
+```
+
+The final step is you need to set a user that Gator can connect to. Enter your database with 
+```
+sudo -u postgres psql
+```
+
+once you're in your database, run the following command:
+```
+ALTER USER postgres PASSWORD 'postgres';
+```
+and finally type `exit` to return to the terminal.
+
+Modify your config file if you set a different password, and you're ready to use Gator!
 
 
 After you have installed Go and Postgres, open your terminal/shell and run
 ```
 go install github.com/Daxin319/Gator@latest
 ```
+
 Once the program has installed, run it with `Gator [command] [arguments]`
 
 

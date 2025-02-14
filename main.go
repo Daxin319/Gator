@@ -471,17 +471,11 @@ func scrapeFeeds(s *state) {
 			os.Exit(1)
 		}
 
-		//debug
-		fmt.Println(item.Description)
-
 		markdown, err := htmltomarkdown.ConvertString(item.Description)
 		if err != nil {
 			fmt.Println("error converting description from html to markdown")
 			os.Exit(1)
 		}
-
-		//debug
-		fmt.Println(markdown)
 
 		args := database.CreatePostParams{
 			ID:          uuid.New(),
